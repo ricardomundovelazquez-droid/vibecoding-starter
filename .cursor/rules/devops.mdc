@@ -1,0 +1,90 @@
+---
+description: DevOps Agent — Vercel deploy, variables de entorno, configuración de proyecto. Actívalo para infraestructura y despliegue.
+globs: ["vercel.json", ".env*", "next.config*"]
+alwaysApply: false
+---
+
+# DevOps Agent
+
+## Entornos
+```
+local      → localhost:3000 + supabase start (local)
+preview    → Vercel preview por PR + Supabase staging
+production → Vercel main branch + Supabase prod
+```
+
+## vercel.json
+```json
+{
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options",  "value": "nosniff" },
+        { "key": "X-Frame-Options",         "value": "DENY" },
+        { "key": "X-XSS-Protection",        "value": "1; mode=block" },
+        { "key": "Referrer-Policy",         "value": "strict-origin-when-cross-origin" },
+        { "key": "Permissions-Policy",      "value": "camera=(), microphone=(), geolocation=()" }
+      ]
+    }
+  ]
+}
+```
+
+## next.config.ts
+```typescript
+import type { NextConfig } from 'next'
+
+const nextConfig: NextConfig = {
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '*.supabase.co',
+        pathname: '/storage/v1/object/public/**',
+      },
+    ],
+  },
+}
+
+export default nextConfig
+```
+
+## Variables de entorno
+
+### .env.example (siempre actualizado y commiteado)
+```bash
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=https://[project-ref].supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+
+# Solo servidor — NUNCA prefijo NEXT_PUBLIC_
+SUPABASE_SERVICE_ROLE_KEY=
+
+# App
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+# Agregar aquí al añadir nuevas variables:
+# RESEND_API_KEY=
+# STRIPE_SECRET_KEY=
+```
+
+### Reglas
+- `NEXT_PUBLIC_` → visible en cliente. Solo para datos no sensibles.
+- Sin prefijo → solo servidor. Para secrets.
+- `SERVICE_ROLE_KEY` NUNCA con `NEXT_PUBLIC_`
+- Actualizar `.env.example` cada vez que se añade una variable
+- En Vercel: configurar en Settings → Environment Variables por entorno (Production / Preview / Development)
+
+## Checklist de deploy
+- [ ] `npm run build` pasa sin errores en local
+- [ ] `.env.example` está actualizado
+- [ ] Variables configuradas en Vercel (Production + Preview)
+- [ ] Migraciones de Supabase aplicadas en el proyecto de producción
+- [ ] `supabase gen types` ejecutado con el schema final
+- [ ] RLS habilitado y probado en prod
+- [ ] Headers de seguridad en vercel.json

@@ -1,0 +1,100 @@
+---
+description: Stack tecnológico del proyecto. Siempre activo.
+globs:
+alwaysApply: true
+---
+
+# Stack tecnológico — reglas globales
+
+## Tecnologías permitidas
+
+| Capa | Tecnología |
+|------|-----------|
+| Framework | Next.js 15 — App Router obligatorio |
+| Lenguaje | TypeScript strict — sin `any` nunca |
+| Estilos | Tailwind CSS v4 |
+| Componentes base | shadcn/ui |
+| Componentes animados | Magic UI (magicui.design) |
+| Base de datos | Supabase (PostgreSQL) |
+| Auth | Supabase Auth |
+| Storage | Supabase Storage |
+| Deploy | Vercel |
+| Estado global | Zustand |
+| Estado servidor | TanStack Query |
+| Formularios | React Hook Form + Zod |
+| Iconos | lucide-react (incluido en shadcn) |
+| Fechas | date-fns |
+| URL state | nuqs |
+| Dark mode | next-themes |
+
+## Tecnologías prohibidas
+
+| Prohibido | Alternativa |
+|-----------|-------------|
+| Figma / design tools externos | vibecoding directo |
+| CSS Modules / styled-components | Tailwind CSS |
+| Pages Router (`pages/`) | App Router (`app/`) |
+| Firebase / Prisma / PlanetScale | Supabase |
+| Netlify / Railway / Fly.io | Vercel |
+| Bootstrap / MUI / Chakra UI | shadcn/ui + Magic UI |
+| `fetch` desde Client Components | Server Actions |
+| `getServerSideProps` / `getStaticProps` | Server Components |
+| `any` en TypeScript | tipo real o `unknown` |
+
+## Modelo de rendering
+
+```
+Server Component → por defecto en todo
+Client Component → solo con 'use client' para:
+                   useState, useEffect, event listeners, browser APIs
+
+Nunca en Server:  useState, useEffect, window, document
+Nunca en Client:  cookies(), headers(), acceso directo a DB
+```
+
+## Mutaciones de datos
+
+```
+SIEMPRE: Server Actions ('use server') en actions.ts por feature
+NUNCA: fetch() directo al DB desde el cliente
+NUNCA: Route Handlers para mutaciones de UI (solo webhooks externos)
+```
+
+## Componentes UI — orden de búsqueda
+
+```
+1. ¿Existe en shadcn/ui?       → usar ese (npx shadcn@latest add [nombre])
+2. ¿Existe en Magic UI?        → usar ese
+3. ¿Se puede componer?         → componer con los anteriores
+4. No existe nada equivalente  → crear custom en src/components/ui/
+```
+
+## Estilos
+
+```
+- Tailwind utility classes en JSX
+- Variantes con CVA (incluido en shadcn)
+- cn() de src/lib/utils para condicionales
+- NUNCA valores hardcodeados: colores, spacing, font-size
+- Escala de spacing permitida: 1,2,3,4,5,6,8,10,12,16,20,24,32,40,48
+- Excepciones con [] solo para dimensiones exactas de imágenes/iconos
+```
+
+## Variables de entorno requeridas
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=      # NUNCA con prefijo NEXT_PUBLIC_
+NEXT_PUBLIC_APP_URL=
+```
+
+## Comandos frecuentes
+
+```bash
+npx shadcn@latest add [componente]                              # agregar componente shadcn
+supabase gen types typescript --local > src/lib/supabase/types.ts  # regenerar tipos
+supabase migration new [nombre]                                 # nueva migración
+npm run dev                                                     # Next.js :3000
+supabase start                                                  # Supabase local :54321
+```

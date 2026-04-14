@@ -1,0 +1,155 @@
+---
+description: Auditores de calidad — actívalos al terminar cualquier task. Bloquean código con problemas de calidad, seguridad o consistencia.
+globs: ["**/*.ts", "**/*.tsx", "**/*.sql"]
+alwaysApply: false
+---
+
+# Auditores de Calidad
+
+Actívalos siempre después de que cualquier agente entrega trabajo. El orquestador es responsable. Ningún código es "terminado" sin pasar por aquí.
+
+---
+
+## @typescript-auditor — siempre
+
+```
+BLOQUEAR si encuentras:
+❌ any  en cualquier parte → usar tipo real o unknown
+❌ // @ts-ignore sin justificación documentada
+❌ as [Tipo] sin validación previa (type assertion ciego)
+❌ Parámetros de función sin tipo
+❌ Return types faltantes en Server Actions y utils
+❌ Tipos de Supabase no usados (usar los generados en types.ts)
+
+VERIFICAR:
+✅ Props de componentes con interface o type explícito
+✅ Enums o const maps para valores constantes (no strings mágicos)
+✅ z.infer<typeof schema> para tipos derivados de Zod
+```
+
+---
+
+## @code-quality-auditor — siempre
+
+### Límites de tamaño
+```
+Función:      máximo 40 líneas  → dividir si supera
+Componente:   máximo 150 líneas → dividir en subcomponentes
+Indentación:  máximo 3 niveles  → refactorizar si hay más
+```
+
+### Anti-patrones a bloquear
+```
+❌ Lógica duplicada en 2+ lugares → extraer a util o hook
+❌ Prop drilling más de 2 niveles → usar contexto o Zustand
+❌ Comentarios que explican QUÉ (el código debe ser autoexplicativo)
+❌ Variables de una letra (excepto i, j en loops)
+❌ console.log en código de producción
+❌ Código comentado (si no se usa, se elimina)
+❌ Función con "y" en el nombre → hace dos cosas, dividir
+```
+
+### DRY — buscar antes de crear
+```
+Antes de crear código nuevo, revisar:
+src/lib/utils.ts     → utilidades genéricas
+src/hooks/           → lógica React reutilizable
+src/components/ui/   → componentes base
+Si el mismo patrón aparece 3+ veces → crear abstracción
+```
+
+### Orden de imports
+```typescript
+// 1. React y Next.js
+import { useState } from 'react'
+import { redirect } from 'next/navigation'
+// 2. Librerías externas
+import { z } from 'zod'
+// 3. Componentes internos absolutos
+import { Button } from '@/components/ui/button'
+// 4. Relativos
+import { UserCard } from './UserCard'
+```
+
+---
+
+## @security-auditor — cuando hay DB, auth o env vars
+
+```
+BLOQUEAR inmediatamente:
+❌ SUPABASE_SERVICE_ROLE_KEY con prefijo NEXT_PUBLIC_
+❌ Cualquier secret hardcodeado en código fuente
+❌ SELECT sin filtro de user_id en tablas de usuario
+❌ Server Action sin verificación: if (!user) return { error: 'No autorizado' }
+❌ Datos de usuario en localStorage sin cifrar
+❌ fetch() a APIs externas con secrets desde el cliente
+
+VERIFICAR:
+✅ RLS habilitado en cada tabla nueva (ALTER TABLE x ENABLE ROW LEVEL SECURITY)
+✅ Inputs validados con Zod antes de DB
+✅ auth.getUser() en servidor (no auth.getSession())
+✅ .env.example actualizado con las nuevas variables
+✅ Variables sensibles en .env.local (gitignored), no en .env
+```
+
+---
+
+## @ux-consistency-auditor — cuando hay UI
+
+```
+BLOQUEAR si encuentras:
+❌ Colores hardcodeados: #fff, blue, rgb(...) → usar variables de shadcn
+❌ Spacing hardcodeado: margin: 13px → usar escala Tailwind
+❌ font-size fuera del sistema: text-[15px] → usar text-sm/base/lg
+❌ Componente UI recreado inline cuando ya existe en shadcn/ui
+❌ Falta dark mode en componente custom (no usa text-foreground, bg-background)
+
+VERIFICAR:
+✅ Estados completos: loading (Skeleton), error, empty, success
+✅ focus-visible:ring-2 en elementos interactivos
+✅ Responsive mobile-first (375px base, sm/md/lg para expandir)
+✅ alt en imágenes (descriptivo o vacío si decorativa)
+✅ aria-label en botones sin texto visible
+```
+
+---
+
+## @performance-auditor — en features con data o imágenes
+
+```
+BLOQUEAR:
+❌ Imágenes sin next/image
+❌ next/image sin width y height
+❌ N+1 queries (loop con query por item) → usar JOIN o Promise.all
+❌ fetch en useEffect → usar Server Component o TanStack Query
+❌ Listas de +50 items sin paginación o virtualización
+
+VERIFICAR:
+✅ Queries paralelas con Promise.all cuando no hay dependencia
+✅ dynamic(() => import(...)) para componentes pesados
+✅ Server Components hacen el fetch, no los Client Components
+✅ revalidatePath después de mutaciones (no recargar página entera)
+```
+
+---
+
+## @test — en features críticas
+
+```typescript
+// Estructura de test (Vitest)
+describe('[nombre de la función o componente]', () => {
+  it('should [comportamiento esperado en positivo]', () => {
+    // Arrange → Act → Assert
+  })
+  it('should handle [caso de error o edge case]', () => {
+    // ...
+  })
+})
+```
+
+```
+Qué probar siempre:
+- Server Actions: happy path + error states
+- Validaciones Zod: input válido + inputs inválidos
+- Flujos críticos con Playwright: registro, login, acción principal
+```

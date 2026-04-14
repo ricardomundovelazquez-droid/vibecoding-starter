@@ -1,0 +1,183 @@
+---
+description: UI Design Agent — genera componentes con shadcn/ui y Magic UI. Sin Figma. Vibecoding puro.
+globs: ["**/*.tsx", "**/globals.css", "**/components/**"]
+alwaysApply: false
+---
+
+# UI Design Agent
+
+## Rol
+Construyes interfaces directamente en código usando shadcn/ui y Magic UI. No hay Figma, no hay wireframes, no hay archivos de diseño externos. El diseño emerge del código.
+
+## Fuentes de componentes — en orden de prioridad
+
+### 1. shadcn/ui — estructura y accesibilidad
+```bash
+npx shadcn@latest add accordion
+npx shadcn@latest add alert
+npx shadcn@latest add avatar
+npx shadcn@latest add badge
+npx shadcn@latest add button
+npx shadcn@latest add card
+npx shadcn@latest add checkbox
+npx shadcn@latest add dialog
+npx shadcn@latest add dropdown-menu
+npx shadcn@latest add form
+npx shadcn@latest add input
+npx shadcn@latest add label
+npx shadcn@latest add popover
+npx shadcn@latest add progress
+npx shadcn@latest add select
+npx shadcn@latest add separator
+npx shadcn@latest add sheet
+npx shadcn@latest add skeleton
+npx shadcn@latest add switch
+npx shadcn@latest add table
+npx shadcn@latest add tabs
+npx shadcn@latest add textarea
+npx shadcn@latest add toast
+npx shadcn@latest add tooltip
+```
+
+### 2. Magic UI — animación y detalle visual
+```
+# Texto y entrada
+AnimatedGradientText   → badges de hero sections
+TypingAnimation        → efecto de escritura
+BlurFade               → aparición suave de secciones
+WordFadeIn             → títulos con fade por palabra
+LetterPullUp           → títulos con animación por letra
+
+# Fondos y decoración
+DotPattern             → fondo con puntos
+GridPattern            → fondo con grid
+Particles              → fondo con partículas
+Meteors               → efecto de meteoros
+
+# Botones y CTAs
+ShimmerButton          → CTA principal animado
+RippleButton           → botón con efecto ripple
+InteractiveHoverButton → botón con hover elaborado
+
+# Cards y contenedores
+MagicCard              → card con efecto de luz en hover
+BentoGrid / BentoCard  → layouts tipo bento
+
+# Números y métricas
+NumberTicker           → números animados
+AnimatedCircularProgressBar → progreso circular
+
+# Layout
+Marquee                → scroll infinito horizontal
+```
+
+### 3. Componentes custom
+Solo cuando las dos anteriores no cubren. Van en `src/components/[feature]/`.
+
+## Patrones de código
+
+### Componente con shadcn
+```tsx
+// src/components/feature/UserCard.tsx
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { cn } from '@/lib/utils'
+
+interface UserCardProps {
+  user: { name: string; email: string; role: string; avatar?: string }
+  className?: string
+}
+
+export function UserCard({ user, className }: UserCardProps) {
+  return (
+    <Card className={cn('hover:shadow-md transition-shadow', className)}>
+      <CardHeader className="flex flex-row items-center gap-3 pb-2">
+        <Avatar>
+          <AvatarImage src={user.avatar} alt={user.name} />
+          <AvatarFallback>{user.name[0]}</AvatarFallback>
+        </Avatar>
+        <div className="flex-1 min-w-0">
+          <CardTitle className="text-sm font-medium truncate">{user.name}</CardTitle>
+          <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+        </div>
+        <Badge variant="secondary">{user.role}</Badge>
+      </CardHeader>
+    </Card>
+  )
+}
+```
+
+### Variantes con CVA
+```tsx
+import { cva, type VariantProps } from 'class-variance-authority'
+import { cn } from '@/lib/utils'
+
+const statusVariants = cva(
+  'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
+  {
+    variants: {
+      status: {
+        active:   'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+        inactive: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200',
+        pending:  'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+        error:    'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+      }
+    },
+    defaultVariants: { status: 'active' }
+  }
+)
+
+interface StatusBadgeProps extends VariantProps<typeof statusVariants> {
+  label: string
+  className?: string
+}
+
+export function StatusBadge({ status, label, className }: StatusBadgeProps) {
+  return <span className={cn(statusVariants({ status }), className)}>{label}</span>
+}
+```
+
+### Hero section con Magic UI
+```tsx
+import { BlurFade } from '@/components/magicui/blur-fade'
+import { AnimatedGradientText } from '@/components/magicui/animated-gradient-text'
+import { ShimmerButton } from '@/components/magicui/shimmer-button'
+import { DotPattern } from '@/components/magicui/dot-pattern'
+
+export function HeroSection() {
+  return (
+    <section className="relative flex flex-col items-center justify-center min-h-screen text-center px-4">
+      <DotPattern className="absolute inset-0 opacity-40" />
+      <div className="relative z-10 space-y-6 max-w-3xl">
+        <BlurFade delay={0.1}>
+          <AnimatedGradientText>Novedad</AnimatedGradientText>
+        </BlurFade>
+        <BlurFade delay={0.2}>
+          <h1 className="text-4xl md:text-6xl font-bold tracking-tight">
+            Tu headline aquí
+          </h1>
+        </BlurFade>
+        <BlurFade delay={0.3}>
+          <p className="text-lg text-muted-foreground max-w-xl mx-auto">
+            Descripción del producto.
+          </p>
+        </BlurFade>
+        <BlurFade delay={0.4}>
+          <ShimmerButton>Empezar gratis</ShimmerButton>
+        </BlurFade>
+      </div>
+    </section>
+  )
+}
+```
+
+## Checklist por componente
+- [ ] Usa shadcn/ui o Magic UI como base (no reinventa la rueda)
+- [ ] Sin colores, spacing o font-size hardcodeados
+- [ ] Acepta `className` para extensibilidad
+- [ ] Dark mode funciona (usa variables CSS de shadcn: `text-foreground`, `bg-background`, etc.)
+- [ ] Estados definidos: loading → `<Skeleton>`, error, empty, success
+- [ ] `focus-visible:ring-2` en elementos interactivos
+- [ ] Responsive mobile-first: diseña en 375px, expande con `sm:` `md:` `lg:`
+- [ ] `alt` descriptivo en imágenes, vacío si decorativas

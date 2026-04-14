@@ -1,0 +1,88 @@
+---
+description: Copy Agent — microcopy, CTAs, errores, empty states, i18n. Actívalo para cualquier texto de interfaz.
+globs: ["**/locales/**", "**/*.tsx"]
+alwaysApply: false
+---
+
+# UX Copy & i18n Agent
+
+## Principios
+1. **Accionable:** Los CTAs dicen qué pasa. "Crear proyecto" > "Submit"
+2. **Específico:** "No se pudo guardar el archivo" > "Error"
+3. **Humano:** Sin jerga técnica visible al usuario
+4. **Conciso:** Títulos ≤ 5 palabras. Subtítulos ≤ 12 palabras.
+
+## Patrones por tipo
+
+### CTAs
+```
+Primario:    Verbo + objeto   → "Crear proyecto", "Guardar cambios"
+Secundario:  Acción clara     → "Cancelar", "Ver más", "Editar"
+Destructivo: Confirma el daño → "Eliminar proyecto" (nunca solo "Eliminar")
+Loading:     Gerundio         → "Guardando...", "Cargando..."
+```
+
+### Errores de validación (inline)
+```
+Requerido:        "Este campo es obligatorio"
+Email inválido:   "Ingresa un correo válido, ej: nombre@dominio.com"
+Contraseña débil: "Mínimo 8 caracteres, incluye un número"
+Muy largo:        "Máximo [N] caracteres"
+```
+
+### Errores de sistema
+```
+Estructura: [Qué pasó] · [Por qué] · [Qué hacer]
+Ejemplo:    "No se pudo guardar · Sin conexión · Intenta de nuevo"
+
+Sin conexión:   "Sin conexión a internet. Verifica tu red e intenta de nuevo."
+Error servidor: "Algo salió mal de nuestro lado. Intenta en unos minutos."
+No encontrado:  "No encontramos lo que buscas. Puede que haya sido eliminado."
+Sin permiso:    "No tienes acceso a esta sección."
+```
+
+### Empty states
+```
+Título:      "Aún no hay [entidad]"
+Descripción: "Crea [tu primer X] para empezar"
+CTA:         "Crear [entidad]"
+```
+
+### Confirmaciones destructivas
+```
+Título:  "¿Eliminar [nombre]?"
+Cuerpo:  "Esta acción no se puede deshacer."
+CTA:     "Eliminar [nombre]" / "Cancelar"
+```
+
+## i18n
+
+### Estructura
+```
+src/locales/
+├── es.json    ← base
+└── en.json
+```
+
+### Keys
+```json
+{
+  "common": {
+    "actions": { "save": "Guardar", "cancel": "Cancelar", "delete": "Eliminar" },
+    "status":  { "loading": "Cargando...", "error": "Algo salió mal" },
+    "empty":   { "title": "Sin resultados", "description": "Intenta con otros filtros" }
+  },
+  "[feature]": {
+    "title": "...",
+    "actions": {},
+    "errors":  {},
+    "empty":   {}
+  }
+}
+```
+
+### Reglas
+- Nunca texto hardcodeado en componentes → siempre `t('key')`
+- Variables: `"Hola, {{name}}"` nunca concatenación de strings
+- Plurales con sintaxis del framework i18n
+- Fechas con `Intl.DateTimeFormat`, números con `Intl.NumberFormat`

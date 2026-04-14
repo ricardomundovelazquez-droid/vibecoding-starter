@@ -1,0 +1,213 @@
+---
+description: Backend Agent — Supabase DB, Auth, Edge Functions, Server Actions. Todo lo relacionado con datos y servidor.
+globs: ["src/app/api/**", "supabase/**", "src/lib/supabase/**", "**/actions.ts"]
+alwaysApply: false
+---
+
+# Backend Agent
+
+## Clientes Supabase
+
+```typescript
+// src/lib/supabase/server.ts
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
+import type { Database } from './types'
+
+export async function createClient() {
+  const cookieStore = await cookies()
+  return createServerClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll: () => cookieStore.getAll(),
+        setAll: (cookiesToSet) => {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options)
+            )
+          } catch {}
+        },
+      },
+    }
+  )
+}
+
+// src/lib/supabase/client.ts
+import { createBrowserClient } from '@supabase/ssr'
+import type { Database } from './types'
+
+export function createClient() {
+  return createBrowserClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+}
+```
+
+### Cuándo usar cuál
+```
+Server Components, Server Actions, Route Handlers → createClient() de server.ts
+Client Components ('use client')                  → createClient() de client.ts
+```
+
+## DB — Reglas obligatorias
+
+### RLS en todas las tablas (sin excepción)
+```sql
+ALTER TABLE [tabla] ENABLE ROW LEVEL SECURITY;
+
+-- Política estándar: usuario ve solo sus datos
+CREATE POLICY "users_own_data" ON [tabla]
+  FOR ALL USING (auth.uid() = user_id);
+
+-- Política de lectura pública (si aplica)
+CREATE POLICY "public_read" ON [tabla]
+  FOR SELECT USING (is_public = true);
+```
+
+### Estructura de tabla estándar
+```sql
+CREATE TABLE [nombre] (
+  id          UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id     UUID        REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  created_at  TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  updated_at  TIMESTAMPTZ DEFAULT NOW() NOT NULL
+  -- campos específicos
+);
+
+-- Trigger para updated_at automático
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER update_[nombre]_updated_at
+  BEFORE UPDATE ON [nombre]
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+```
+
+### Queries — patrones correctos
+```typescript
+// Siempre usar tipos generados
+const { data, error } = await supabase
+  .from('projects')
+  .select('id, name, created_at')
+  .eq('user_id', user.id)
+  .order('created_at', { ascending: false })
+  .limit(20)
+
+if (error) throw new Error(error.message)
+
+// Con relaciones
+const { data } = await supabase
+  .from('posts')
+  .select(`
+    id, title, content,
+    author: profiles(id, name, avatar_url),
+    tags(id, name)
+  `)
+  .eq('id', postId)
+  .single()
+```
+
+### Migraciones
+```bash
+supabase migration new [nombre_descriptivo]
+supabase db reset                                              # aplicar local
+supabase gen types typescript --local > src/lib/supabase/types.ts  # regenerar tipos
+```
+
+## Auth — Middleware
+
+```typescript
+// src/middleware.ts
+import { createServerClient } from '@supabase/ssr'
+import { NextResponse, type NextRequest } from 'next/server'
+
+export async function middleware(request: NextRequest) {
+  let supabaseResponse = NextResponse.next({ request })
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll: () => request.cookies.getAll(),
+        setAll: (cookiesToSet) => {
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value)
+          )
+          supabaseResponse = NextResponse.next({ request })
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options)
+          )
+        },
+      },
+    }
+  )
+
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const isProtected = request.nextUrl.pathname.startsWith('/dashboard') ||
+                      request.nextUrl.pathname.startsWith('/settings')
+  const isAuthRoute = request.nextUrl.pathname.startsWith('/login') ||
+                      request.nextUrl.pathname.startsWith('/register')
+
+  if (!user && isProtected) {
+    return NextResponse.redirect(new URL('/login', request.url))
+  }
+  if (user && isAuthRoute) {
+    return NextResponse.redirect(new URL('/dashboard', request.url))
+  }
+
+  return supabaseResponse
+}
+
+export const config = {
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
+}
+```
+
+## Edge Functions
+
+```typescript
+// supabase/functions/[nombre]/index.ts
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+  try {
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    )
+    // lógica aquí
+    return new Response(JSON.stringify({ success: true }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200,
+    })
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 500,
+    })
+  }
+})
+```
+
+## Reglas críticas
+- RLS habilitado en TODAS las tablas. Sin excepción.
+- `SERVICE_ROLE_KEY` solo en Edge Functions y servidor. Nunca cliente.
+- `auth.getUser()` para verificar en servidor, nunca `auth.getSession()`
+- Validar con Zod antes de cualquier operación en DB
+- Regenerar tipos TypeScript después de cada migración
