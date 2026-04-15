@@ -29,6 +29,18 @@ Editar `.cursor/mcp.json`:
 
 ### 5. Completar docs/INSTRUCTIONS.md
 Llenar los campos marcados con `[NOMBRE]`, `[DESCRIPCIÓN]`, etc.
+  1. Tú llenas manualmente los campos básicos de INSTRUCTIONS.md:
+    -Nombre del proyecto
+    -Tipo
+    -Descripción corta
+    -Supabase project ref
+    -Idioma de la UI
+    -Usuarios del producto (aunque sea borrador)
+  2. Luego el PRD.md — aquí sí puedes pedirle ayuda a la IA:
+    @orchestrator ayúdame a crear el PRD.md para [describe tu idea en 2-3 oraciones]
+  3. Una vez tienes PRD + INSTRUCTIONS mínimos, ya puedes:
+     @INSTRUCTIONS.md @PRD.md @orchestrator quiero construir [feature específico]
+
 
 ---
 
